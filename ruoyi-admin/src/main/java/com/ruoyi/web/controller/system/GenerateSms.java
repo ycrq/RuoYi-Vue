@@ -40,8 +40,8 @@ public class GenerateSms {
         // 保存验证码信息
         String uuid = IdUtils.simpleUUID();
         String verifyKey = Constants.SMS_CAPTCHA_CODE_KEY + uuid;
-
-        int code = (int) Math.ceil(Math.random() * 9000 + 1000);
+        //四位验证码
+        int code = (int) Math.ceil(Math.random() * 900000 + 100000);
         Map<String, Object> map = new HashMap<>(16);
         map.put("mobile", mobile);
         map.put("code", code);
