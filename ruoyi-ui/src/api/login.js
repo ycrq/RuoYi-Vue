@@ -18,6 +18,24 @@ export function login(username, password, code, uuid) {
   })
 }
 
+//短信验证码登录
+export function smsLogin(mobile, smsCode, uuid){
+  const data = {
+    mobile,
+    smsCode,
+    uuid
+  }
+  return request({
+    url:'/sms/login',
+    headers: {
+      isToken: false
+    },
+    method:'post',
+    data:data
+  })
+}
+
+
 // 注册方法
 export function register(data) {
   return request({
@@ -55,5 +73,21 @@ export function getCodeImg() {
     },
     method: 'get',
     timeout: 20000
+  })
+}
+
+//获取短信验证码
+export function getSmsCode(mobile){
+  const data = {
+    mobile
+  }
+
+  return request({
+    url:'/sms/code',
+    headers: {
+      isToken: false
+    },
+    method:'post',
+    data:data
   })
 }

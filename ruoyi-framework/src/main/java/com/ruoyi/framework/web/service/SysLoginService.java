@@ -1,6 +1,10 @@
 package com.ruoyi.framework.web.service;
 
 import javax.annotation.Resource;
+
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.exception.CustomException;
+import com.ruoyi.framework.smsConfig.SmsCodeAuthenticationToken;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -28,6 +32,8 @@ import com.ruoyi.framework.manager.factory.AsyncFactory;
 import com.ruoyi.framework.security.context.AuthenticationContextHolder;
 import com.ruoyi.system.service.ISysConfigService;
 import com.ruoyi.system.service.ISysUserService;
+
+import java.util.Map;
 
 /**
  * 登录校验方法
@@ -177,5 +183,73 @@ public class SysLoginService
         sysUser.setLoginIp(IpUtils.getIpAddr());
         sysUser.setLoginDate(DateUtils.getNowDate());
         userService.updateUserProfile(sysUser);
+    }
+
+    /**
+     * 手机号登录验证
+     *
+     * @param mobile 手机号
+     * @param code 验证码
+     * @param uuid 唯一标识
+     * @return 结果
+     */
+
+    public AjaxResult smsLogin(String mobile, String code, String uuid)
+    {
+
+        // 用户验证
+        Authentication authentication = null;
+        try
+        {
+            checkSmsCode(mobile,code,uuid);
+
+            // 该方法会去调用UserDetailsServiceImpl.loadUserByUsername
+            authentication = authenticationManager
+                    .authenticate(new SmsCodeAuthenticationToken(mobile));
+        }
+        catch (Exception e)
+        {
+
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(mobile, Constants.LOGIN_FAIL, e.getMessage()));
+            throw new CustomException(e.getMessage());
+
+        }
+        AsyncManager.me().execute(AsyncFactory.recordLogininfor(mobile, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        AjaxResult ajax = AjaxResult.success();
+
+        // 生成token
+        String token = tokenService.createToken(loginUser);
+        ajax.put(Constants.TOKEN, token);
+        return  ajax;
+    }
+
+    /**
+     * 检查手机号登录
+     * @param
+     */
+    private void checkSmsCode(String mobile,String inputCode, String uuid) {
+
+        String verifyKey = Constants.SMS_CAPTCHA_CODE_KEY + uuid;
+
+        Map<String, Object> smsCode =  redisCache.getCacheObject(verifyKey);
+//        redisCache.deleteObject(verifyKey);
+        if(StringUtils.isEmpty(inputCode)){
+            throw new BadCredentialsException("验证码不能为空");
+        }
+
+        if(smsCode == null) {
+            throw new BadCredentialsException("验证码失效");
+        }
+
+        String applyMobile = (String) smsCode.get("mobile");
+        int code = (int) smsCode.get("code");
+
+        if(!applyMobile.equals(mobile)) {
+            throw new BadCredentialsException("手机号码不一致");
+        }
+        if(code != Integer.parseInt(inputCode)) {
+            throw new BadCredentialsException("验证码错误");
+        }
     }
 }

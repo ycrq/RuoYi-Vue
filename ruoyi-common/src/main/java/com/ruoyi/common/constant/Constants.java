@@ -139,4 +139,14 @@ public class Constants
      */
     public static final String[] JOB_ERROR_STR = { "java.net.URL", "javax.naming.InitialContext", "org.yaml.snakeyaml",
             "org.springframework", "org.apache", "com.ruoyi.common.utils.file", "com.ruoyi.common.config" };
+
+    /**
+     * 短信验证码 redis key
+     */
+    public static final String SMS_CAPTCHA_CODE_KEY = "sms_captcha_codes:";
+
+    /**
+     * 短信验证码过期时间 1分钟
+     */
+    public static final Integer SMS_EXPIRATION = 1;
 }

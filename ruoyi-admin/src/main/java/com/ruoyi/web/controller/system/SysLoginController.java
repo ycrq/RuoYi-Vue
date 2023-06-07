@@ -2,6 +2,9 @@ package com.ruoyi.web.controller.system;
 
 import java.util.List;
 import java.util.Set;
+
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,6 +51,25 @@ public class SysLoginController
         String token = loginService.login(loginBody.getUsername(), loginBody.getPassword(), loginBody.getCode(),
                 loginBody.getUuid());
         ajax.put(Constants.TOKEN, token);
+        return ajax;
+    }
+
+    /**
+     * 手机号登录方法
+     *
+     * @param
+     * @return 结果
+     */
+    @ApiOperation("手机号登录")
+    @ApiImplicitParam(name = "loginBody", value = "登录信息", dataType = "LoginBody")
+    @PostMapping("/sms/login")
+    public AjaxResult smsLogin(@RequestBody LoginBody loginBody)
+    {
+        String mobile=loginBody.getMobile();
+        String smsCode=loginBody.getSmsCode();
+        String uuid=loginBody.getUuid();
+        AjaxResult ajax = loginService.smsLogin(mobile, smsCode,
+                uuid);
         return ajax;
     }
 
