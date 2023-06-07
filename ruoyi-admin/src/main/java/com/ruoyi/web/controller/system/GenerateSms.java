@@ -52,6 +52,8 @@ public class GenerateSms {
         logger.info(" 为 {} 设置短信验证码：{}", mobile, code);
         AjaxResult ajax = AjaxResult.success();
         ajax.put("uuid", uuid);
+
+        //方便测试后期移除
         ajax.put("code",code);
         return ajax;
     }
