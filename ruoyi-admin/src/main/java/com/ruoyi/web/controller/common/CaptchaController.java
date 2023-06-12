@@ -6,10 +6,15 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletResponse;
+
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import com.ruoyi.common.core.domain.model.LoginBody;
+import com.ruoyi.framework.web.service.SysLoginService;
+import org.aspectj.apache.bcel.classfile.Module;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.FastByteArrayOutputStream;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import com.google.code.kaptcha.Producer;
 import com.ruoyi.common.config.RuoYiConfig;
 import com.ruoyi.common.constant.CacheConstants;
@@ -39,6 +44,9 @@ public class CaptchaController
     
     @Autowired
     private ISysConfigService configService;
+
+    @Autowired
+    private SysLoginService sysLoginService;
     /**
      * 生成验证码
      */
@@ -91,4 +99,50 @@ public class CaptchaController
         ajax.put("img", Base64.encode(os.toByteArray()));
         return ajax;
     }
+
+    /**
+     * 发送验证码
+     */
+    @PostMapping("/getCaptcha")
+    public AjaxResult getCaptcha(@RequestParam(required = false) String mobile, @RequestParam(required = false) String email,
+                                 @RequestParam("templateId") int templateId){
+        if (StrUtil.isBlank(mobile) && StrUtil.isBlank(email)){
+            return AjaxResult.error("参数不能为空");
+        }else {
+            if (!StrUtil.isBlank(mobile)){
+               return sysLoginService.sendSmsCaptcha(mobile,templateId);
+            }else {
+                return sysLoginService.sendMailCaptcha(email,templateId);
+            }
+        }
+    }
+
+//    /**
+//     * 发送验证码
+//     */
+//    @PostMapping("getCaptcha")
+//    public AjaxResult getCaptcha(@RequestParam("mobile") String mobile, @RequestParam("email") String email){
+//        //构建流程中用到的上下文
+//        LoginContext loginContext = new LoginContext();
+//        ResultContext resultContext = new ResultContext();
+//        if (StrUtil.isBlank(mobile) && StrUtil.isBlank(email)){
+//            return AjaxResult.error("参数不能为空");
+//        }else {
+//            if (!StrUtil.isBlank(mobile)){
+//                loginContext.setMobile(mobile);
+//            }else {
+//                loginContext.setEmail(email);
+//            }
+//        }
+//        //调用流程
+//        LiteflowResponse response = flowExecutor.execute2Resp("CaptchaLoginChain","",loginContext,resultContext);
+//
+//        //获取结果
+//        ResultContext result = response.getSlot().getContextBean(ResultContext.class);
+//        if (ObjectUtil.isNull(result)){
+//            return AjaxResult.error("未知错误");
+//        }
+//
+//        return result.getAjaxResult();
+//    }
 }

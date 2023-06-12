@@ -1,5 +1,6 @@
 package com.ruoyi.web.controller.system;
 
+import cn.hutool.core.util.RandomUtil;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.model.LoginBody;
@@ -41,7 +42,7 @@ public class GenerateSms {
         String uuid = IdUtils.simpleUUID();
         String verifyKey = Constants.SMS_CAPTCHA_CODE_KEY + uuid;
         //四位验证码
-        int code = (int) Math.ceil(Math.random() * 900000 + 100000);
+        String code = RandomUtil.randomNumbers(4);
         Map<String, Object> map = new HashMap<>(16);
         map.put("mobile", mobile);
         map.put("code", code);
@@ -57,6 +58,5 @@ public class GenerateSms {
         ajax.put("code",code);
         return ajax;
     }
-
 }
 

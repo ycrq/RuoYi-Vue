@@ -26,6 +26,15 @@ public class RedisCache
     public RedisTemplate redisTemplate;
 
     /**
+     * value 加一
+     * @param key 缓存的键值
+     * @return
+     */
+    public Long incr(final String key){
+        return redisTemplate.opsForValue().increment(key);
+    }
+
+    /**
      * 缓存基本的对象，Integer、String、实体类等
      *
      * @param key 缓存的键值
@@ -265,4 +274,6 @@ public class RedisCache
     {
         return redisTemplate.keys(pattern);
     }
+
+
 }

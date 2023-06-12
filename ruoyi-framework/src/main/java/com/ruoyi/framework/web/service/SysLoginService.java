@@ -1,11 +1,23 @@
 package com.ruoyi.framework.web.service;
 
 import javax.annotation.Resource;
+import javax.mail.MessagingException;
 
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.ruoyi.Utils.SendMailUtil;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.exception.CustomException;
 import com.ruoyi.framework.smsConfig.SmsCodeAuthenticationToken;
+import com.ruoyi.system.domain.Template;
+import com.ruoyi.system.mapper.TemplateMapper;
+import com.ruoyi.system.service.TemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -33,7 +45,9 @@ import com.ruoyi.framework.security.context.AuthenticationContextHolder;
 import com.ruoyi.system.service.ISysConfigService;
 import com.ruoyi.system.service.ISysUserService;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 登录校验方法
@@ -57,6 +71,32 @@ public class SysLoginService
 
     @Autowired
     private ISysConfigService configService;
+
+    @Autowired
+    private TemplateService templateService;
+
+    @Autowired
+    private SendMailUtil sendMailUtil;
+
+    //接口用常量值定义
+    private int mailCodeLength = 6;
+    private int redisDuration = 86400;
+    private long redisLimit = 15;
+
+    /**
+     * 邮件验证码 redis key
+     */
+    public static final String MAIL_CAPTCHA_CODE_KEY = "mail_captcha_code:";
+
+    /**
+     * 邮件验证码发送限制 redis key
+     */
+    public static final String MAIL_CAPTCHA_CODE_LIMIT_KEY = "mail_captcha_code_limit:";
+
+    /**
+     * 邮件验证码过期时间 1分钟
+     */
+    public static final Integer MAIL_EXPIRATION = 60;
 
     /**
      * 登录验证
@@ -186,6 +226,44 @@ public class SysLoginService
     }
 
     /**
+     * 发送邮箱验证码
+     */
+    public AjaxResult sendMailCaptcha(String email,int templateId) {
+
+        String mailKey = new StringBuffer(MAIL_CAPTCHA_CODE_KEY).append(email).toString();
+        if (!StrUtil.isEmpty(redisCache.getCacheObject(mailKey))){
+            return AjaxResult.error("操作频繁，请一分钟后再试");
+        }
+        String limitKey = new StringBuffer(MAIL_CAPTCHA_CODE_LIMIT_KEY).append(email).toString();
+        if (!checkOperaTimes(redisLimit,redisDuration,limitKey)){
+            return AjaxResult.error("今日发送次数已达最大限制");
+        }
+
+        Template template = templateService.getOne(new QueryWrapper<Template>().lambda()
+                .eq(Template::getTemplateId,templateId));
+        if(ObjectUtil.isNull(template)){//模板不存在
+            return AjaxResult.error("发送邮件失败");
+        }
+        String subject = template.getSubject();
+        String captcha = RandomUtil.randomNumbers(mailCodeLength);
+        //渲染邮件模板
+        Map<String,String> paramMap = new HashMap<>();
+        paramMap.put("mailCaptcha",captcha);
+        String text = StrUtil.format(template.getText(),paramMap);
+        sendMailUtil.sendMail(subject,email,text);
+        redisCache.setCacheObject(mailKey,captcha,MAIL_EXPIRATION, TimeUnit.SECONDS);
+        return null;
+    }
+
+    /**
+     * 发送手机验证码
+     */
+    public AjaxResult sendSmsCaptcha(String email,int templateId){
+
+        return null;
+    }
+
+    /**
      * 手机号登录验证
      *
      * @param mobile 手机号
@@ -251,5 +329,23 @@ public class SysLoginService
         if(code != Integer.parseInt(inputCode)) {
             throw new BadCredentialsException("验证码错误");
         }
+    }
+
+    /**
+     * 操作次数限制检查
+     * @param limit
+     * @param duration
+     * @param operaKey
+     * @return
+     */
+    private boolean checkOperaTimes(Long limit, Integer duration, String operaKey){
+        Long operaCount = redisCache.incr(operaKey);
+        if (operaCount == 1){
+            redisCache.expire(operaKey,duration,TimeUnit.SECONDS);
+        }
+        if (operaCount > limit){
+            return false;
+        }
+        return true;
     }
 }
