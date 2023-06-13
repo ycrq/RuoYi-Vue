@@ -1,6 +1,7 @@
 package com.ruoyi.framework.config;
 
 import com.ruoyi.framework.smsConfig.SmsCodeAuthenticationSecurityConfig;
+import com.ruoyi.mailConfig.MailCodeAuthenticationSecurityConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
@@ -67,6 +68,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter
 
     @Autowired
     private SmsCodeAuthenticationSecurityConfig smsCodeAuthenticationSecurityConfig;
+
+    @Autowired
+    private MailCodeAuthenticationSecurityConfig mailCodeAuthenticationSecurityConfig;
     /**
      * 解决 无法直接注入 AuthenticationManager
      *
@@ -103,7 +107,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter
         permitAllUrl.getUrls().forEach(url -> registry.antMatchers(url).permitAll());
 
         httpSecurity
-                .apply(smsCodeAuthenticationSecurityConfig).and()
                 // CSRF禁用，因为不使用session
                 .csrf().disable()
                 // 禁用HTTP响应标头
@@ -115,7 +118,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter
                 // 过滤请求
                 .authorizeRequests()
                 // 对于登录login 注册register 验证码captchaImage 允许匿名访问
-                .antMatchers("/login", "/register", "/captchaImage","/sms/**","/getCaptcha").permitAll()
+                .antMatchers("/login", "/register", "/captchaImage","/sms/**","/getCaptcha","/loginByMail").permitAll()
                 // 静态资源，可匿名访问
                 .antMatchers(HttpMethod.GET, "/", "/*.html", "/**/*.html", "/**/*.css", "/**/*.js", "/profile/**").permitAll()
                 .antMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/druid/**").permitAll()
@@ -130,6 +133,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter
         // 添加CORS filter
         httpSecurity.addFilterBefore(corsFilter, JwtAuthenticationTokenFilter.class);
         httpSecurity.addFilterBefore(corsFilter, LogoutFilter.class);
+        httpSecurity.apply(smsCodeAuthenticationSecurityConfig);
+        httpSecurity.apply(mailCodeAuthenticationSecurityConfig);
     }
 
     /**

@@ -54,6 +54,12 @@ public class SysLoginController
         return ajax;
     }
 
+    @PostMapping("/loginByMail")
+    public AjaxResult loginByMail(@RequestBody LoginBody loginBody){
+
+        return loginService.loginByMail(loginBody.getMail(),loginBody.getCaptcha());
+    }
+
     /**
      * 手机号登录方法
      *
@@ -66,7 +72,7 @@ public class SysLoginController
     public AjaxResult smsLogin(@RequestBody LoginBody loginBody)
     {
         String mobile=loginBody.getMobile();
-        String smsCode=loginBody.getSmsCode();
+        String smsCode=loginBody.getCaptcha();
         String uuid=loginBody.getUuid();
         AjaxResult ajax = loginService.smsLogin(mobile, smsCode,
                 uuid);

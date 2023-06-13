@@ -1,23 +1,24 @@
 package com.ruoyi.framework.web.service;
 
 import javax.annotation.Resource;
-import javax.mail.MessagingException;
+
 
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.Utils.SendMailUtil;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.exception.CustomException;
 import com.ruoyi.framework.smsConfig.SmsCodeAuthenticationToken;
+
+import com.ruoyi.mailConfig.MailCodeAuthenticationToken;
 import com.ruoyi.system.domain.Template;
-import com.ruoyi.system.mapper.TemplateMapper;
+
 import com.ruoyi.system.service.TemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -94,9 +95,88 @@ public class SysLoginService
     public static final String MAIL_CAPTCHA_CODE_LIMIT_KEY = "mail_captcha_code_limit:";
 
     /**
-     * 邮件验证码过期时间 1分钟
+     * 邮件验证码过期时间 10分钟
      */
-    public static final Integer MAIL_EXPIRATION = 60;
+    public static final Integer MAIL_EXPIRATION = 10*60;
+
+    /**
+     * 邮件获取限制时间 1分钟
+     */
+    public static final Integer MAIL_SEND_RATE_TIME = 60;
+
+    /**
+     * 邮件获取速率限制 redis key
+     */
+    public static final String MAIL_SEND_RATE_KEY = "mail_send_rate:";
+
+    /**
+     * 验证码验证次数限制
+     */
+    public static final String MAIl_CODE_LOCK_TIME = "mail_code_lock_time:";
+
+
+    /**
+     * 邮箱验证码登录
+     * @param email 邮箱
+     * @param captcha 验证码
+     * @return
+     */
+    public AjaxResult loginByMail(String email, String captcha){
+
+        // 用户验证
+        Authentication authentication = null;
+        try
+        {
+            if(!checkMailCode(email, captcha)){
+                String codeLockKey = new StringBuffer(MAIl_CODE_LOCK_TIME).append(email).toString();
+                Long count = redisCache.incr(codeLockKey);
+                if (count == 1){
+                    redisCache.expire(codeLockKey,MAIL_EXPIRATION,TimeUnit.SECONDS);
+                }
+                if (count > 5){
+                    String mailKey= new StringBuffer(MAIL_CAPTCHA_CODE_KEY).append(email).toString();
+                    redisCache.deleteObject(mailKey);
+                    redisCache.deleteObject(codeLockKey);
+                    return AjaxResult.error(0,"验证码已失效，请重新获取验证码");
+                }
+                return AjaxResult.error(0,"验证码错误");
+            }
+            // 该方法会去调用UserDetailsServiceImpl.loadUserByUsername
+            authentication = authenticationManager
+                    .authenticate(new MailCodeAuthenticationToken(email));
+        }
+        catch (Exception e)
+        {
+
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(email, Constants.LOGIN_FAIL, e.getMessage()));
+            throw new CustomException(e.getMessage());
+
+        }
+        AsyncManager.me().execute(AsyncFactory.recordLogininfor(email, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        AjaxResult ajax = AjaxResult.success();
+
+        // 生成token
+        String token = tokenService.createToken(loginUser);
+        ajax.put(Constants.TOKEN, token);
+        return  ajax;
+    }
+
+    public boolean checkMailCode(String email, String captcha){
+        String mailKey = new StringBuffer(MAIL_CAPTCHA_CODE_KEY).append(email).toString();
+        if (!redisCache.hasKey(mailKey)){
+            return false;
+        }
+        if(captcha.equals(redisCache.getCacheObject(mailKey))) {
+            //验证通过删除验证码，删除获取速率限制
+            String rateKey = new StringBuffer(MAIL_SEND_RATE_KEY).append(email).toString();
+            redisCache.deleteObject(mailKey);
+            redisCache.deleteObject(rateKey);
+            return true;
+        }
+        return false;
+    }
+
 
     /**
      * 登录验证
@@ -107,8 +187,9 @@ public class SysLoginService
      * @param uuid 唯一标识
      * @return 结果
      */
-    public String login(String username, String password, String code, String uuid)
+    public String login(String username, String password,String code, String uuid)
     {
+
         // 验证码校验
         validateCaptcha(username, code, uuid);
         // 登录前置校验
@@ -230,9 +311,11 @@ public class SysLoginService
      */
     public AjaxResult sendMailCaptcha(String email,int templateId) {
 
-        String mailKey = new StringBuffer(MAIL_CAPTCHA_CODE_KEY).append(email).toString();
-        if (!StrUtil.isEmpty(redisCache.getCacheObject(mailKey))){
+        String rateKey = new StringBuffer(MAIL_SEND_RATE_KEY).append(email).toString();
+        if (!StrUtil.isEmpty(redisCache.getCacheObject(rateKey))){
             return AjaxResult.error("操作频繁，请一分钟后再试");
+        }else{
+            redisCache.expire(rateKey,MAIL_SEND_RATE_TIME,TimeUnit.SECONDS);
         }
         String limitKey = new StringBuffer(MAIL_CAPTCHA_CODE_LIMIT_KEY).append(email).toString();
         if (!checkOperaTimes(redisLimit,redisDuration,limitKey)){
@@ -251,8 +334,9 @@ public class SysLoginService
         paramMap.put("mailCaptcha",captcha);
         String text = StrUtil.format(template.getText(),paramMap);
         sendMailUtil.sendMail(subject,email,text);
+        String mailKey = new StringBuffer(MAIL_CAPTCHA_CODE_KEY).append(email).toString();
         redisCache.setCacheObject(mailKey,captcha,MAIL_EXPIRATION, TimeUnit.SECONDS);
-        return null;
+        return AjaxResult.success("发送验证码成功");
     }
 
     /**
@@ -321,12 +405,12 @@ public class SysLoginService
         }
 
         String applyMobile = (String) smsCode.get("mobile");
-        int code = (int) smsCode.get("code");
+        String code =  (String) smsCode.get("code");
 
         if(!applyMobile.equals(mobile)) {
             throw new BadCredentialsException("手机号码不一致");
         }
-        if(code != Integer.parseInt(inputCode)) {
+        if(!code.equals(inputCode)) {
             throw new BadCredentialsException("验证码错误");
         }
     }

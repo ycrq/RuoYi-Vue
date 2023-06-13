@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
 public class SmsCodeAuthenticationSecurityConfig extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
     @Autowired
     private SmsUserDetailsServiceImpl userDetailsService;
-    @Autowired
-    private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
-    @Autowired
-    private CustomAuthenticationFailureHandler customAuthenticationFailureHandler;
+//    @Autowired
+//    private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
+//    @Autowired
+//    private CustomAuthenticationFailureHandler customAuthenticationFailureHandler;
 
     @Override
     public void configure(HttpSecurity http) throws Exception {

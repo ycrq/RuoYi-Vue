@@ -1,6 +1,8 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
@@ -8,7 +10,7 @@ import com.ruoyi.common.core.domain.entity.SysUser;
  * 
  * @author ruoyi
  */
-public interface ISysUserService
+public interface ISysUserService extends IService<SysUser>
 {
     /**
      * 根据条件分页查询用户列表
@@ -211,4 +213,12 @@ public interface ISysUserService
      * @return 用户对象信息
      */
     public SysUser selectUserByPhone(String phone);
+
+    /**
+     * 通过邮箱查询用户
+     *
+     * @param email 手机号
+     * @return 用户对象信息
+     */
+    public SysUser selectUserByEmail(String email);
 }

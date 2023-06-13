@@ -33,9 +33,14 @@ public class LoginBody
     private String mobile;
 
     /**
-     * 手机验证码
+     * 邮箱
      */
-    private String smsCode;
+    private String mail;
+
+    /**
+     * 验证码
+     */
+    private String captcha;
 
     public String getUsername()
     {
@@ -85,11 +90,19 @@ public class LoginBody
         this.mobile = mobile;
     }
 
-    public String getSmsCode() {
-        return smsCode;
+    public String getMail() {
+        return mail;
     }
 
-    public void setSmsCode(String smsCode) {
-        this.smsCode = smsCode;
+    public void setMail(String mail) {
+        this.mail = mail;
+    }
+
+    public String getCaptcha() {
+        return captcha;
+    }
+
+    public void setCaptcha(String captcha) {
+        this.captcha = captcha;
     }
 }
